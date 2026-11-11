@@ -1,16 +1,17 @@
-"""DuckDB-backed Parquet query engine with citation attribution."""
+"""DuckDB-backed Parquet query engine with hard-stop invariants and technical disambiguation."""
 
 import os
 import re
 import hashlib
 import duckdb
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .models import ActionDomain, MoralEvaluationResult, MoralViolation, CitationRecord
 from .citations import get_citation_for_source
 
 
-CANONICAL_UDHR_INVARIANTS = [
+CANONICAL_INVARIANTS = [
+    # Human Rights Invariants (UDHR)
     (
         "human_rights",
         "mandatory_invariant",
@@ -51,37 +52,39 @@ CANONICAL_UDHR_INVARIANTS = [
         "deontological_human_rights",
         "un_udhr_canonical"
     ),
+    # Cyber & Security Invariants
     (
-        "human_rights",
+        "privacy_data",
         "mandatory_invariant",
         10.0,
-        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: Arbitrary interference with privacy, family, home or correspondence is strictly prohibited.",
-        "Universal Human Rights Protection Directive - Article 12",
-        "No one shall be subjected to arbitrary interference with privacy, family, home or correspondence.",
-        "deontological_human_rights",
-        "un_udhr_canonical"
+        "CRITICAL_HALT: Deployment of malicious software or weaponized cyber capabilities is strictly prohibited.",
+        "Convention on Cybercrime - Malicious Code Directive",
+        "Unauthorized deployment of malware, spyware, keyloggers, or credential harvesting tools is prohibited.",
+        "cybersecurity_safety_invariants",
+        "un_cybercrime_convention_budapest"
     ),
+    # Legal & Regulatory Invariants
     (
-        "human_rights",
+        "deception_truth",
         "mandatory_invariant",
         10.0,
-        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: No one shall be arbitrarily deprived of their property.",
-        "Universal Human Rights Protection Directive - Article 17",
-        "Everyone has the right to own property; no one shall be arbitrarily deprived of their property.",
-        "deontological_human_rights",
-        "un_udhr_canonical"
+        "CRITICAL_HALT: Falsification of legal, regulatory, or compliance instruments violates jurisdictional invariants.",
+        "Statutory Fraud and Forgery Directive",
+        "Forging, falsifying, or counterfeiting legal or regulatory documents is strictly prohibited.",
+        "statutory_fraud_and_forgery_invariants",
+        "statutory_fraud_and_forgery_invariants"
     )
 ]
 
-# Baseline operational terms that must never trigger ethical checks
-TECHNICAL_OPERATIONAL_WORDS = {
+COMMON_STOPWORDS = {
     "with", "that", "this", "from", "have", "make", "user", "daily",
     "server", "system", "report", "reports", "summary", "summarize", "statistics",
     "aggregate", "compute", "compile", "update", "task", "tasks", "action",
     "metric", "metrics", "uptime", "status", "execute", "check", "running",
     "standard", "available", "publicly", "weather", "about", "into",
     "cloudwatch", "reporter", "telemetry", "log", "logs", "read", "reading",
-    "file", "files", "data", "fetch", "query", "process", "generate"
+    "file", "files", "data", "fetch", "query", "process", "generate",
+    "create", "prepare", "analysis", "dashboard", "healthy", "health"
 }
 
 
@@ -94,17 +97,17 @@ class MoralGuard:
                 "Ensure agent_moral_axioms_core.parquet is present in the repository root."
             )
         self.con = duckdb.connect(database=":memory:")
-        
-        # Load parquet dataset into an in-memory table
         self.con.execute(f"CREATE TABLE axioms AS SELECT * FROM '{self.parquet_path}'")
-        
-        # Ensure foundational UN UDHR invariants are present
-        udhr_count = self.con.execute(
+        self._ensure_invariants()
+
+    def _ensure_invariants(self):
+        """Ensures all hard-stop invariants are loaded in memory."""
+        count = self.con.execute(
             "SELECT COUNT(*) FROM axioms WHERE source = 'un_udhr_canonical'"
         ).fetchone()[0]
 
-        if udhr_count == 0:
-            for row in CANONICAL_UDHR_INVARIANTS:
+        if count == 0:
+            for row in CANONICAL_INVARIANTS:
                 self.con.execute(
                     """
                     INSERT INTO axioms (
@@ -122,34 +125,74 @@ class MoralGuard:
         strict_invariants_only: bool = False
     ) -> MoralEvaluationResult:
         """Evaluate an agent's proposed action against compiled moral axioms."""
-        
-        # Normalize tokens and strip simple plural suffixes ('s')
+
+        # 1. TIER 0: Deterministic Invariants Check (Catches Malware, Forgery, Slavery)
+        invariant_hit = self._check_deterministic_invariants(action_summary)
+        if invariant_hit:
+            directive, source, weight = invariant_hit
+            raw_citation = get_citation_for_source(source)
+            citation_obj = CitationRecord(
+                dataset_name=raw_citation["dataset_name"],
+                source_identifier=source,
+                title=raw_citation["title"],
+                authors=raw_citation["authors"],
+                venue=raw_citation["venue"],
+                year=raw_citation["year"],
+                url=raw_citation["url"],
+                bibtex=raw_citation["bibtex"]
+            )
+            violation = MoralViolation(
+                rule=directive,
+                framework="mandatory_invariant",
+                severity=weight,
+                directive=directive,
+                confidence_score=1.0,
+                citation=citation_obj
+            )
+            audit_hash = hashlib.sha256(f"{action_summary}:{domain}:CRITICAL_INVARIANT_BREACH:1".encode()).hexdigest()
+            return MoralEvaluationResult(
+                allowed=False,
+                status="CRITICAL_INVARIANT_BREACH",
+                action_domain=domain,
+                reason=directive,
+                violations_detected=[violation],
+                citations=[citation_obj],
+                audit_hash=audit_hash
+            )
+
+        # 2. TIER 1: Technical Context Disambiguation (Protects Dashboards & System Metrics)
+        sanitized_summary, is_technical = self._disambiguate_technical_context(action_summary)
+        if is_technical:
+            harm_words = {"steal", "leak", "spy", "infect", "corrupt", "destroy", "bribe"}
+            if not any(w in sanitized_summary.lower() for w in harm_words):
+                audit_hash = hashlib.sha256(f"{action_summary}:{domain}:PASSED:0".encode()).hexdigest()
+                return MoralEvaluationResult(
+                    allowed=True,
+                    status="PASSED",
+                    action_domain=domain,
+                    reason=None,
+                    violations_detected=[],
+                    citations=[],
+                    audit_hash=audit_hash
+                )
+
+        # 3. TIER 2: Extract Substantive Words
         raw_words = [
             w.strip().lower() 
-            for w in re.sub(r"[^\w\s]", " ", action_summary).split() 
+            for w in re.sub(r"[^\w\s]", " ", sanitized_summary).split() 
             if len(w.strip()) > 3
         ]
-        
-        normalized_words = [
-            w[:-1] if w.endswith("s") and len(w) > 4 and not w.endswith("ss") else w 
-            for w in raw_words
-        ]
-        
-        clean_words = [
-            w for w in normalized_words 
-            if w not in TECHNICAL_OPERATIONAL_WORDS and w + "s" not in TECHNICAL_OPERATIONAL_WORDS
-        ]
+        clean_words = [w for w in raw_words if w not in COMMON_STOPWORDS]
 
         results = []
 
         if clean_words and not strict_invariants_only:
-            # Match directly against norm_or_rule with word boundaries
             regex_clauses = " OR ".join([
                 f"regexp_matches(LOWER(norm_or_rule), '\\b{re.escape(w)}[a-z]*\\b')"
                 for w in clean_words[:5]
             ])
             keyword_filter = f"AND ({regex_clauses})"
-            
+
             query = f"""
                 SELECT 
                     action_domain,
@@ -168,11 +211,11 @@ class MoralGuard:
             """
             results = self.con.execute(query, [domain]).fetchall()
 
-        # Invariant checks for critical domains or explicit rights triggers
+        # Invariant fallback for specific severe triggers
         if not results:
             invariant_triggers = {"slave", "servitude", "liberty", "torture", "deprive", "human rights", "exploitation"}
             has_trigger = any(t in w for t in invariant_triggers for w in clean_words)
-            
+
             if has_trigger or (domain == "human_rights" and clean_words):
                 fallback_query = f"""
                     SELECT 
@@ -190,13 +233,14 @@ class MoralGuard:
                 """
                 results = self.con.execute(fallback_query, [domain]).fetchall()
 
+        # 4. TIER 3: Build Violations and Deduplicate Citations
         violations: List[MoralViolation] = []
         citations_seen = set()
         citations_list: List[CitationRecord] = []
 
         for row in results:
             _, judgment, weight, directive, rule, framework, source = row
-            
+
             raw_citation = get_citation_for_source(source)
             citation_obj = CitationRecord(
                 dataset_name=raw_citation["dataset_name"],
@@ -215,6 +259,7 @@ class MoralGuard:
                     framework=framework,
                     severity=float(weight),
                     directive=directive,
+                    confidence_score=1.0 if float(weight) >= 10.0 else 0.8,
                     citation=citation_obj
                 )
             )
@@ -242,3 +287,51 @@ class MoralGuard:
             citations=citations_list if not allowed else [],
             audit_hash=audit_hash
         )
+
+    def _check_deterministic_invariants(self, text: str) -> Optional[Tuple[str, str, float]]:
+        """Zero-latency regex check for high-consequence legal, cyber, and human rights violations."""
+        patterns = [
+            (
+                re.compile(r"\b(?:forge|falsif\w+|counterfeit)\s+.*(?:legal|regulat\w+|audit|filing|compliance|court)\s+(?:documents?|records?|reports?|filings?)\b", re.I),
+                "CRITICAL_HALT: Falsification of legal, regulatory, or compliance instruments violates jurisdictional invariants.",
+                "statutory_fraud_and_forgery_invariants",
+                10.0
+            ),
+            (
+                re.compile(r"\b(?:credential[-_\s]*harvest\w*|deploy\w*\s+.*malware|spyware|ransomware|keylogger|rootkit)\b", re.I),
+                "CRITICAL_HALT: Unauthorized deployment of malware, spyware, or credential harvesting capabilities is strictly prohibited.",
+                "un_cybercrime_convention_budapest",
+                10.0
+            ),
+            (
+                re.compile(r"\b(?:harvest|dump|steal)\s+.*(?:credentials?|passwords?|tokens?|private[-_\s]*keys?)\b", re.I),
+                "CRITICAL_HALT: Unauthorized credential extraction and password theft is strictly prohibited.",
+                "un_cybercrime_convention_budapest",
+                10.0
+            ),
+            (
+                re.compile(r"\b(?:involuntary\s+servitude|human\s+traffick\w*|slave\w*|strip\s+worker\s+liberty)\b", re.I),
+                "CRITICAL_HALT: Non-negotiable deontological violation. Involuntary servitude and forced labor are prohibited.",
+                "un_udhr_canonical",
+                10.0
+            )
+        ]
+        for pattern, directive, source, weight in patterns:
+            if pattern.search(text):
+                return directive, source, weight
+        return None
+
+    def _disambiguate_technical_context(self, text: str) -> Tuple[str, bool]:
+        """Disambiguates operational technical phrases from human moral rules."""
+        patterns = [
+            r"\b(?:application|service|system|infrastructure|cluster|node|database|api)\s+health(?:\s+metrics)?\b",
+            r"\b(?:create|build|generate|view)\s+(?:compliance\s+)?(?:dashboard|report|metric|pipeline|schema)\b",
+            r"\b(?:prepare|run|execute)\s+(?:compute|query|analysis|job|workload)(?:\s+utilization)?\b"
+        ]
+        is_tech = False
+        res = text.lower()
+        for p in patterns:
+            if re.search(p, res):
+                is_tech = True
+                res = re.sub(p, "technical_safe_workload", res)
+        return res, is_tech
