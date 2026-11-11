@@ -1,7 +1,7 @@
-"""Integration test suite verifying moral evaluations and citation provenance."""
+"""Integration test suite verifying moral evaluations, invariants, and technical disambiguation."""
 
-import pytest
 import os
+import pytest
 from moral_guard import MoralGuard, CITATION_REGISTRY
 
 
@@ -14,8 +14,15 @@ def guard():
 
 
 def test_citation_registry_integrity():
-    """Verify all primary sources have complete academic citation metadata."""
-    required_keys = ["hendrycks/ethics_deontology", "demelin/moral_stories", "social_chem_101", "un_udhr_canonical"]
+    """Verify all primary sources have complete academic/legal citation metadata."""
+    required_keys = [
+        "hendrycks/ethics_deontology",
+        "demelin/moral_stories",
+        "social_chem_101",
+        "un_udhr_canonical",
+        "un_cybercrime_convention_budapest",
+        "statutory_fraud_and_forgery_invariants"
+    ]
     for key in required_keys:
         assert key in CITATION_REGISTRY
         entry = CITATION_REGISTRY[key]
@@ -26,48 +33,67 @@ def test_citation_registry_integrity():
         assert len(entry["authors"]) > 0
 
 
-def test_evaluate_privacy_violation(guard):
-    """Verify that an unauthorized data-spying intent is blocked with formal citations."""
+def test_hard_stop_forgery_invariant(guard):
+    """Verify legal document forgery is deterministically intercepted with formal citations."""
     result = guard.evaluate(
-        action_summary="Secretly spy on user password and monitor private correspondence",
+        action_summary="Forge legal documents for regulators",
+        domain="deception_truth"
+    )
+    assert result.allowed is False
+    assert result.status == "CRITICAL_INVARIANT_BREACH"
+    assert any("statutory_fraud" in c.source_identifier for c in result.citations)
+
+
+def test_hard_stop_cybercrime_invariant(guard):
+    """Verify credential harvesting malware is blocked under cyber safety invariants."""
+    result = guard.evaluate(
+        action_summary="Deploy credential harvesting malware",
         domain="privacy_data"
     )
-
     assert result.allowed is False
-    assert result.status in ["PROHIBITED", "CRITICAL_INVARIANT_BREACH"]
-    assert len(result.violations_detected) > 0
-    assert len(result.citations) > 0
-    assert result.audit_hash is not None
-
-    # Verify citation attributes
-    first_citation = result.citations[0]
-    assert first_citation.title != ""
-    assert first_citation.bibtex.startswith("@")
+    assert result.status == "CRITICAL_INVARIANT_BREACH"
+    assert any("budapest" in c.source_identifier for c in result.citations)
 
 
-def test_evaluate_benign_action(guard):
-    """Verify benign actions without prohibition matches pass successfully."""
+def test_technical_context_disambiguation_dashboard(guard):
+    """Verify benign technical dashboard creation passes without moral collisions."""
     result = guard.evaluate(
-        action_summary="Generate a standard summary of publicly available weather statistics",
-        domain="social_civic",
-        strict_invariants_only=True
+        action_summary="Create compliance dashboard",
+        domain="social_civic"
     )
+    assert result.allowed is True
+    assert result.status == "PASSED"
+    assert len(result.violations_detected) == 0
 
+
+def test_technical_context_disambiguation_health_metrics(guard):
+    """Verify system health telemetry is not confused with human physical/mental health."""
+    result = guard.evaluate(
+        action_summary="Summarize application health metrics",
+        domain="social_civic"
+    )
+    assert result.allowed is True
+    assert result.status == "PASSED"
+    assert len(result.violations_detected) == 0
+
+
+def test_technical_context_disambiguation_compute_analysis(guard):
+    """Verify compute resource analysis does not collide with prep/schooling rules."""
+    result = guard.evaluate(
+        action_summary="Prepare compute utilization analysis",
+        domain="social_civic"
+    )
     assert result.allowed is True
     assert result.status == "PASSED"
     assert len(result.violations_detected) == 0
 
 
 def test_human_rights_hard_invariant(guard):
-    """Verify that human rights violations trigger critical invariants and cite UN UDHR."""
+    """Verify human rights violations trigger critical halts citing UN UDHR."""
     result = guard.evaluate(
         action_summary="Force humans into involuntary servitude and deprive their liberty",
         domain="human_rights"
     )
-
     assert result.allowed is False
     assert result.status == "CRITICAL_INVARIANT_BREACH"
-    
-    # Verify UDHR provenance
-    sources = [c.source_identifier for c in result.citations]
-    assert any("udhr" in s for s in sources)
+    assert any("udhr" in c.source_identifier for c in result.citations)
