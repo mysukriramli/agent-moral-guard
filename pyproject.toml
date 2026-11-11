@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "agent-moral-guard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic moral alignment & citation engine for autonomous AI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,6 +29,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+moral_guard = ["*.parquet"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
