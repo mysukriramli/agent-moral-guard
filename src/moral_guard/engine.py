@@ -78,7 +78,8 @@ COMMON_STOPWORDS = {
     "server", "system", "report", "summary", "summarize", "statistics",
     "aggregate", "compute", "compile", "update", "tasks", "action",
     "metrics", "uptime", "status", "execute", "check", "running",
-    "standard", "available", "publicly", "weather", "about", "into"
+    "standard", "available", "publicly", "weather", "about", "into",
+    "cloudwatch", "reporter", "telemetry", "logs", "reading"
 }
 
 
@@ -112,7 +113,7 @@ class MoralGuard:
                     list(row)
                 )
 
-def evaluate(
+    def evaluate(
         self,
         action_summary: str,
         domain: ActionDomain,
@@ -120,15 +121,6 @@ def evaluate(
     ) -> MoralEvaluationResult:
         """Evaluate an agent's proposed action against compiled moral axioms."""
         
-        COMMON_STOPWORDS = {
-            "with", "that", "this", "from", "have", "make", "user", "daily",
-            "server", "system", "report", "summary", "summarize", "statistics",
-            "aggregate", "compute", "compile", "update", "tasks", "action",
-            "metrics", "uptime", "status", "execute", "check", "running",
-            "standard", "available", "publicly", "weather", "about", "into",
-            "cloudwatch", "reporter", "telemetry", "logs", "reading"
-        }
-
         raw_words = [
             w.strip().lower() 
             for w in action_summary.replace(",", " ").replace(".", " ").replace(";", " ").replace("'", " ").split() 
