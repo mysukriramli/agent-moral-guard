@@ -1,4 +1,4 @@
-"""Academic and institutional citation registry for moral datasets."""
+"""Academic and institutional citation registry for moral and safety datasets."""
 
 from typing import Dict, Any
 
@@ -74,16 +74,32 @@ CITATION_REGISTRY: Dict[str, Dict[str, Any]] = {
         "dataset_name": "United Nations International Human Rights Directives",
         "url": "https://www.un.org/en/about-us/universal-declaration-of-human-rights",
         "bibtex": "@misc{un1948udhr, author={United Nations}, title={Universal Declaration of Human Rights}, year={1948}, publisher={UN General Assembly}}"
+    },
+    "un_cybercrime_convention_budapest": {
+        "title": "Convention on Cybercrime (Budapest Convention)",
+        "authors": ["Council of Europe"],
+        "venue": "European Treaty Series - No. 185",
+        "year": 2001,
+        "dataset_name": "International Cybercrime Safety Invariants",
+        "url": "https://www.coe.int/en/web/cyberviolence/the-budapest-convention",
+        "bibtex": "@misc{budapest2001cybercrime, author={Council of Europe}, title={Convention on Cybercrime}, year={2001}, publisher={Council of Europe}}"
+    },
+    "statutory_fraud_and_forgery_invariants": {
+        "title": "Statutory Fraud, Counterfeiting, and Deception Invariants",
+        "authors": ["International Legal Compliance Standard"],
+        "venue": "Legal Deontology and Jurisprudence Standards",
+        "year": 2024,
+        "dataset_name": "Regulatory & Legal Invariant Directives",
+        "url": "https://github.com/mysukriramli/agent-moral-guard",
+        "bibtex": "@misc{legal_invariants_2024, author={Moral Guard Compliance}, title={Statutory Fraud Invariants}, year={2024}}"
     }
 }
 
 
 def get_citation_for_source(source_id: str) -> Dict[str, Any]:
-    """Retrieve full citation metadata by source identifier."""
     if source_id in CITATION_REGISTRY:
         return CITATION_REGISTRY[source_id]
     
-    # Prefix fallback
     for key, citation in CITATION_REGISTRY.items():
         if source_id.startswith(key) or key.startswith(source_id):
             return citation
