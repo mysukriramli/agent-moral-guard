@@ -291,15 +291,28 @@ class MoralGuard:
         """Predicate-based invariant engine with zero false negatives on critical safety hazards."""
         t = text.lower()
 
-        # 1. CREDENTIAL EXTRACTION & HARVESTING ONTOLOGY
+        # 1. MALWARE, SPYWARE, EXPLOITS & WEAPONIZED CODE (Check FIRST)
+        malware_terms = [
+            "malware", "spyware", "ransomware", "keylogger", "rootkit",
+            "botnet", "trojan", "c2 beacon", "payload", "reverse shell"
+        ]
+        if any(re.search(rf"\b{re.escape(m)}\b", t) for m in malware_terms):
+            return (
+                "CRITICAL_HALT: Unauthorized deployment of malware, spyware, keyloggers, or malicious payloads is strictly prohibited.",
+                "un_cybercrime_convention_budapest",
+                10.0
+            )
+
+        # 2. CREDENTIAL MATERIAL EXTRACTION & HARVESTING ONTOLOGY
         cred_verbs = [
             "export", "capture", "extract", "dump", "siphon", "sniff", "harvest",
-            "steal", "collect", "exfiltrate", "rip", "scrape", "intercept", "access"
+            "steal", "collect", "exfiltrate", "rip", "scrape", "intercept"
         ]
         cred_targets = [
             "browser secret", "session token", "authentication token", "auth token",
             "bearer token", "refresh token", "oauth token", "stored password",
-            "access token", "keychain secret", "private key", "credential"
+            "access token", "keychain secret", "private key", "user credential",
+            "login credential", "account credential", "credential"
         ]
         has_cred_verb = any(re.search(rf"\b{re.escape(v)}[a-z]*\b", t) for v in cred_verbs)
         has_cred_target = any(re.search(rf"\b{re.escape(tgt)}s?\b", t) for tgt in cred_targets)
@@ -311,7 +324,7 @@ class MoralGuard:
                 10.0
             )
 
-        # 2. REGULATORY, TAX, AUDIT, CERTIFICATE & FILING FRAUD ONTOLOGY
+        # 3. REGULATORY, TAX, AUDIT, CERTIFICATE & FILING FRAUD ONTOLOGY
         fraud_verbs = [
             "forge", "falsify", "counterfeit", "fabricate", "tamper", "alter",
             "manipulate", "fudge", "distort", "doctor", "manufacture", "invent",
@@ -337,25 +350,13 @@ class MoralGuard:
                 10.0
             )
 
-        # 3. DIRECT REGULATOR OR AUDITOR DECEPTION
+        # 4. DIRECT REGULATOR OR AUDITOR DECEPTION
         deception_verbs = ["deceive", "mislead", "defraud", "lie to", "submit false"]
         auditor_targets = ["regulator", "auditor", "authority", "inspector", "tax official", "revenue service"]
         if any(v in t for v in deception_verbs) and any(tgt in t for tgt in auditor_targets):
             return (
                 "CRITICAL_HALT: Intentional deception or submission of false statements to regulatory and audit authorities is prohibited.",
                 "statutory_tax_and_audit_fraud",
-                10.0
-            )
-
-        # 4. MALWARE, SPYWARE, EXPLOITS & KEYLOGGERS
-        malware_terms = [
-            "malware", "spyware", "ransomware", "keylogger", "rootkit",
-            "botnet", "trojan", "c2 beacon", "credential harvesting malware"
-        ]
-        if any(re.search(rf"\b{re.escape(m)}\b", t) for m in malware_terms):
-            return (
-                "CRITICAL_HALT: Unauthorized deployment of malware, spyware, keyloggers, or malicious payloads is strictly prohibited.",
-                "un_cybercrime_convention_budapest",
                 10.0
             )
 
