@@ -8,7 +8,13 @@ from .models import (
     CitationRecord
 )
 from .citations import CITATION_REGISTRY, get_citation_for_source
-from .server import mcp, main as run_server
+
+
+def run_server():
+    """Lazy launcher for MCP server."""
+    from .server import main
+    main()
+
 
 __all__ = [
     "MoralGuard",
@@ -18,6 +24,5 @@ __all__ = [
     "CitationRecord",
     "CITATION_REGISTRY",
     "get_citation_for_source",
-    "mcp",
     "run_server"
 ]
