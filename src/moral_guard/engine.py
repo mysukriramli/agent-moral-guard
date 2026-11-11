@@ -85,12 +85,26 @@ COMMON_STOPWORDS = {
 
 
 class MoralGuard:
-    def __init__(self, parquet_path: str = "agent_moral_axioms_core.parquet"):
-        self.parquet_path = parquet_path
+    def __init__(self, parquet_path: Optional[str] = None):
+        if parquet_path is None:
+            # Check 1: root repository directory
+            root_candidate = "agent_moral_axioms_core.parquet"
+            # Check 2: inside the installed moral_guard package directory
+            pkg_candidate = os.path.join(os.path.dirname(__file__), "agent_moral_axioms_core.parquet")
+            
+            if os.path.exists(root_candidate):
+                self.parquet_path = root_candidate
+            elif os.path.exists(pkg_candidate):
+                self.parquet_path = pkg_candidate
+            else:
+                self.parquet_path = root_candidate
+        else:
+            self.parquet_path = parquet_path
+
         if not os.path.exists(self.parquet_path):
             raise FileNotFoundError(
                 f"Parquet file '{self.parquet_path}' not found. "
-                "Ensure agent_moral_axioms_core.parquet is present in the repository root."
+                "Ensure agent_moral_axioms_core.parquet is present."
             )
         self.con = duckdb.connect(database=":memory:")
         self.con.execute(f"CREATE TABLE axioms AS SELECT * FROM '{self.parquet_path}'")
