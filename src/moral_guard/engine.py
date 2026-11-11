@@ -9,6 +9,70 @@ from .models import ActionDomain, MoralEvaluationResult, MoralViolation, Citatio
 from .citations import get_citation_for_source
 
 
+CANONICAL_UDHR_INVARIANTS = [
+    (
+        "human_rights",
+        "mandatory_invariant",
+        10.0,
+        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: All human beings are born free and equal in dignity and rights.",
+        "Universal Human Rights Protection Directive - Article 1",
+        "All human beings are born free and equal in dignity and rights.",
+        "deontological_human_rights",
+        "un_udhr_canonical"
+    ),
+    (
+        "human_rights",
+        "mandatory_invariant",
+        10.0,
+        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: Everyone has the right to life, liberty and security of person.",
+        "Universal Human Rights Protection Directive - Article 3",
+        "Everyone has the right to life, liberty and security of person.",
+        "deontological_human_rights",
+        "un_udhr_canonical"
+    ),
+    (
+        "human_rights",
+        "mandatory_invariant",
+        10.0,
+        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: No one shall be held in slavery, servitude, or involuntary exploitation.",
+        "Universal Human Rights Protection Directive - Article 4",
+        "No one shall be held in slavery, servitude, or involuntary exploitation.",
+        "deontological_human_rights",
+        "un_udhr_canonical"
+    ),
+    (
+        "human_rights",
+        "mandatory_invariant",
+        10.0,
+        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: No one shall be subjected to torture or to cruel, inhuman, or degrading treatment.",
+        "Universal Human Rights Protection Directive - Article 5",
+        "No one shall be subjected to torture or to cruel, inhuman, or degrading treatment.",
+        "deontological_human_rights",
+        "un_udhr_canonical"
+    ),
+    (
+        "human_rights",
+        "mandatory_invariant",
+        10.0,
+        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: Arbitrary interference with privacy, family, home or correspondence is strictly prohibited.",
+        "Universal Human Rights Protection Directive - Article 12",
+        "No one shall be subjected to arbitrary interference with privacy, family, home or correspondence.",
+        "deontological_human_rights",
+        "un_udhr_canonical"
+    ),
+    (
+        "human_rights",
+        "mandatory_invariant",
+        10.0,
+        "CRITICAL_HALT: Non-negotiable deontological violation. Rule: No one shall be arbitrarily deprived of their property.",
+        "Universal Human Rights Protection Directive - Article 17",
+        "Everyone has the right to own property; no one shall be arbitrarily deprived of their property.",
+        "deontological_human_rights",
+        "un_udhr_canonical"
+    )
+]
+
+
 class MoralGuard:
     def __init__(self, parquet_path: str = "agent_moral_axioms_core.parquet"):
         self.parquet_path = parquet_path
@@ -18,6 +82,26 @@ class MoralGuard:
                 "Ensure agent_moral_axioms_core.parquet is present in the repository root."
             )
         self.con = duckdb.connect(database=":memory:")
+        
+        # Load parquet dataset into an in-memory table
+        self.con.execute(f"CREATE TABLE axioms AS SELECT * FROM '{self.parquet_path}'")
+        
+        # Ensure foundational UN UDHR invariants are present
+        udhr_count = self.con.execute(
+            "SELECT COUNT(*) FROM axioms WHERE source = 'un_udhr_canonical'"
+        ).fetchone()[0]
+
+        if udhr_count == 0:
+            for row in CANONICAL_UDHR_INVARIANTS:
+                self.con.execute(
+                    """
+                    INSERT INTO axioms (
+                        action_domain, judgment, moral_weight, agent_directive,
+                        context_scenario, norm_or_rule, framework, source
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    list(row)
+                )
 
     def evaluate(
         self,
@@ -27,18 +111,22 @@ class MoralGuard:
     ) -> MoralEvaluationResult:
         """Evaluate an agent's proposed action against compiled moral axioms."""
         
-        # Tokenize action keywords for token match search
-        raw_words = [w.strip().lower() for w in action_summary.replace(",", " ").replace(".", " ").split() if len(w.strip()) > 3]
+        raw_words = [
+            w.strip().lower() 
+            for w in action_summary.replace(",", " ").replace(".", " ").split() 
+            if len(w.strip()) > 3
+        ]
         clean_words = [w for w in raw_words if w not in {"with", "that", "this", "from", "have", "make", "user"}]
         
-        # Build search predicate
         if clean_words:
-            like_clauses = " OR ".join([f"LOWER(norm_or_rule) LIKE '%{w}%' OR LOWER(context_scenario) LIKE '%{w}%'" for w in clean_words[:5]])
+            like_clauses = " OR ".join([
+                f"LOWER(norm_or_rule) LIKE '%{w}%' OR LOWER(context_scenario) LIKE '%{w}%'"
+                for w in clean_words[:5]
+            ])
             keyword_filter = f"AND ({like_clauses})"
         else:
             keyword_filter = ""
 
-        # Filter strictly for prohibitions and mandatory invariants
         query = f"""
             SELECT 
                 action_domain,
@@ -48,7 +136,7 @@ class MoralGuard:
                 norm_or_rule,
                 framework,
                 source
-            FROM '{self.parquet_path}'
+            FROM axioms
             WHERE action_domain = ?
               AND judgment IN ('unacceptable', 'mandatory_invariant')
               {keyword_filter}
@@ -58,7 +146,7 @@ class MoralGuard:
 
         results = self.con.execute(query, [domain]).fetchall()
 
-        # If keyword search was empty, fall back to checking hard invariants for that domain
+        # If keyword search returned no match, fall back to checking hard invariants for that domain
         if not results:
             fallback_query = f"""
                 SELECT 
@@ -69,7 +157,7 @@ class MoralGuard:
                     norm_or_rule,
                     framework,
                     source
-                FROM '{self.parquet_path}'
+                FROM axioms
                 WHERE action_domain = ?
                   AND judgment = 'mandatory_invariant'
                 LIMIT 5
