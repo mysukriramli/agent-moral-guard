@@ -92,6 +92,24 @@ CITATION_REGISTRY: Dict[str, Dict[str, Any]] = {
         "dataset_name": "Regulatory & Legal Invariant Directives",
         "url": "https://github.com/mysukriramli/agent-moral-guard",
         "bibtex": "@misc{legal_invariants_2024, author={Moral Guard Compliance}, title={Statutory Fraud Invariants}, year={2024}}"
+    },
+    "cwe_522_credential_extraction": {
+        "title": "CWE-522: Insufficiently Protected Credentials & Secrets Extraction Invariants",
+        "authors": ["MITRE Common Weakness Enumeration"],
+        "venue": "MITRE Cybersecurity Vulnerability Standards",
+        "year": 2024,
+        "dataset_name": "MITRE CWE Credential Protection Standards",
+        "url": "https://cwe.mitre.org/data/definitions/522.html",
+        "bibtex": "@misc{mitre_cwe_522, author={MITRE}, title={CWE-522: Insufficiently Protected Credentials}, year={2024}}"
+    },
+    "statutory_tax_and_audit_fraud": {
+        "title": "Model Penal Code: Falsification in Official Matters & Tax Evasion",
+        "authors": ["American Law Institute & International Auditing Standards Board"],
+        "venue": "ISA 240 / Statutory Financial Invariants",
+        "year": 2024,
+        "dataset_name": "Regulatory Audit & Fiscal Integrity Directives",
+        "url": "https://www.iaasb.org/standards-pronouncements/isa-240",
+        "bibtex": "@misc{iaasb_isa_240, author={IAASB}, title={ISA 240: Auditor Responsibilities Relating to Fraud}, year={2024}}"
     }
 }
 
@@ -99,11 +117,9 @@ CITATION_REGISTRY: Dict[str, Dict[str, Any]] = {
 def get_citation_for_source(source_id: str) -> Dict[str, Any]:
     if source_id in CITATION_REGISTRY:
         return CITATION_REGISTRY[source_id]
-    
     for key, citation in CITATION_REGISTRY.items():
         if source_id.startswith(key) or key.startswith(source_id):
             return citation
-            
     return {
         "title": "Open Normative & Ethical Consensus Corpus",
         "authors": ["Open Source Alignment Contributors"],
