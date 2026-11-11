@@ -30,6 +30,7 @@ class MoralViolation(BaseModel):
     framework: str
     severity: float
     directive: str
+    confidence_score: float = 1.0
     citation: CitationRecord
 
 
