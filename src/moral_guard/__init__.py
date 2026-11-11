@@ -8,6 +8,7 @@ from .models import (
     CitationRecord
 )
 from .citations import CITATION_REGISTRY, get_citation_for_source
+from .server import mcp, main as run_server
 
 __all__ = [
     "MoralGuard",
@@ -16,5 +17,7 @@ __all__ = [
     "MoralViolation",
     "CitationRecord",
     "CITATION_REGISTRY",
-    "get_citation_for_source"
+    "get_citation_for_source",
+    "mcp",
+    "run_server"
 ]
