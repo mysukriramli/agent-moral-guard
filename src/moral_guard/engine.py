@@ -1,4 +1,4 @@
-"""DuckDB-backed Parquet query engine with comprehensive credential & regulatory fraud invariants."""
+"""DuckDB-backed Parquet query engine with predicate-based invariants and technical disambiguation."""
 
 import os
 import re
@@ -10,7 +10,6 @@ from .models import ActionDomain, MoralEvaluationResult, MoralViolation, Citatio
 from .citations import get_citation_for_source
 
 CANONICAL_INVARIANTS = [
-    # 1. Human Rights Invariants (UN UDHR)
     (
         "human_rights",
         "mandatory_invariant",
@@ -31,7 +30,6 @@ CANONICAL_INVARIANTS = [
         "deontological_human_rights",
         "un_udhr_canonical"
     ),
-    # 2. Cyber Invariants: Malware, Spyware, Intrusion
     (
         "privacy_data",
         "mandatory_invariant",
@@ -42,29 +40,26 @@ CANONICAL_INVARIANTS = [
         "cybersecurity_safety_invariants",
         "un_cybercrime_convention_budapest"
     ),
-    # 3. Credential Material Invariants: Extraction & Harvesting
     (
         "privacy_data",
         "mandatory_invariant",
         10.0,
-        "CRITICAL_HALT: Unauthorized extraction or interception of browser secrets, session tokens, or authentication credentials.",
+        "CRITICAL_HALT: Extraction or capture of authentication tokens, browser secrets, or bearer credentials is strictly prohibited.",
         "CWE-522 Protection of Authentication Credentials Directive",
         "Exporting, capturing, or harvesting session tokens, browser secrets, bearer tokens, or private keys is prohibited.",
         "credential_protection_invariants",
         "cwe_522_credential_extraction"
     ),
-    # 4. Regulatory Record & Document Falsification Invariants
     (
         "deception_truth",
         "mandatory_invariant",
         10.0,
-        "CRITICAL_HALT: Falsification, forgery, backdating, or alteration of regulatory, compliance, or governmental instruments.",
+        "CRITICAL_HALT: Falsification, backdating, fabrication, or forgery of regulatory, compliance, or official certificates.",
         "Statutory Fraud and Forgery Directive",
         "Forging, counterfeit creation, or falsifying regulatory documents, compliance filings, or government certificates is prohibited.",
         "statutory_fraud_and_forgery_invariants",
         "statutory_fraud_and_forgery_invariants"
     ),
-    # 5. Tax, Fiscal & Audit Fabrication Invariants
     (
         "financial_commerce",
         "mandatory_invariant",
@@ -102,7 +97,7 @@ class MoralGuard:
         self._ensure_invariants()
 
     def _ensure_invariants(self):
-        """Ensures all hard-stop invariants are loaded into the axioms engine."""
+        """Ensures all hard-stop invariants are loaded into DuckDB."""
         count = self.con.execute(
             "SELECT COUNT(*) FROM axioms WHERE source = 'cwe_522_credential_extraction'"
         ).fetchone()[0]
@@ -127,7 +122,7 @@ class MoralGuard:
     ) -> MoralEvaluationResult:
         """Evaluate an agent's proposed action against compiled moral and safety axioms."""
 
-        # 1. TIER 0: Deterministic Invariant Check (Zero False Negatives)
+        # 1. TIER 0: Deterministic Invariants Check (Set-based predicate matcher)
         invariant_hit = self._check_deterministic_invariants(action_summary)
         if invariant_hit:
             directive, source, weight = invariant_hit
@@ -293,72 +288,83 @@ class MoralGuard:
         )
 
     def _check_deterministic_invariants(self, text: str) -> Optional[Tuple[str, str, float]]:
-        """Zero-latency regex check for high-consequence legal, cyber, and human rights violations."""
-        
-        # 1. Credential Material Extraction Ontology
-        # Verbs: export, capture, extract, dump, harvest, steal, intercept, siphon, sniff
-        # Targets: browser secrets, session tokens, auth tokens, bearer tokens, refresh tokens, private keys
-        credential_regex = re.compile(
-            r"\b(?:export\w*|captur\w*|extract\w*|dump\w*|harvest\w*|steal\w*|intercept\w*|siphon\w*|sniff\w*|collect\w*)\s+"
-            r".*(?:browser\s+secrets?|session\s+tokens?|auth(?:entication)?\s+tokens?|bearer\s+tokens?|refresh\s+tokens?|"
-            r"access\s+tokens?|oauth\s+tokens?|keychain\s+secrets?|private\s+keys?|stored\s+passwords?)\b",
-            re.I
-        )
-        if credential_regex.search(text):
+        """Predicate-based invariant engine with zero false negatives on critical safety hazards."""
+        t = text.lower()
+
+        # 1. CREDENTIAL EXTRACTION & HARVESTING ONTOLOGY
+        cred_verbs = [
+            "export", "capture", "extract", "dump", "siphon", "sniff", "harvest",
+            "steal", "collect", "exfiltrate", "rip", "scrape", "intercept", "access"
+        ]
+        cred_targets = [
+            "browser secret", "session token", "authentication token", "auth token",
+            "bearer token", "refresh token", "oauth token", "stored password",
+            "access token", "keychain secret", "private key", "credential"
+        ]
+        has_cred_verb = any(re.search(rf"\b{re.escape(v)}[a-z]*\b", t) for v in cred_verbs)
+        has_cred_target = any(re.search(rf"\b{re.escape(tgt)}s?\b", t) for tgt in cred_targets)
+
+        if has_cred_verb and has_cred_target:
             return (
                 "CRITICAL_HALT: Extraction or capture of authentication tokens, browser secrets, or bearer credentials is strictly prohibited.",
                 "cwe_522_credential_extraction",
                 10.0
             )
 
-        # 2. Regulatory, Tax, Audit, and Document Fraud Ontology
-        # Verbs: forge, falsify, counterfeit, fabricate, backdate, alter, misrepresent
-        # Targets: tax records, audit evidence, compliance filings, certificates, regulatory filings, court orders
-        regulatory_fraud_regex = re.compile(
-            r"\b(?:forge|forg\w+|falsif\w+|counterfeit\w*|fabricat\w+|backdat\w+|tamper\w*)\s+"
-            r".*(?:tax\s+records?|tax\s+filings?|audit\s+evidence|audit\s+workpapers?|compliance\s+filings?|"
-            r"compliance\s+records?|government\s+certificates?|regulatory\s+(?:filings?|documents?|reports?)|"
-            r"legal\s+documents?|court\s+orders?|financial\s+statements?|balance\s+sheets?)\b",
-            re.I
-        )
-        if regulatory_fraud_regex.search(text):
+        # 2. REGULATORY, TAX, AUDIT, CERTIFICATE & FILING FRAUD ONTOLOGY
+        fraud_verbs = [
+            "forge", "falsify", "counterfeit", "fabricate", "tamper", "alter",
+            "manipulate", "fudge", "distort", "doctor", "manufacture", "invent",
+            "backdate", "misrepresent"
+        ]
+        fraud_targets = [
+            "tax record", "tax filing", "corporate tax document", "fiscal balance sheet",
+            "vat report", "tax return", "withholding statement", "revenue ledger",
+            "audit evidence", "audit workpaper", "internal audit report", "external audit record",
+            "compliance filing", "compliance record", "regulatory filing", "regulatory report",
+            "regulatory document", "legal document", "court order", "consent agreement",
+            "policy enforcement filing", "government certificate", "regulatory certificate",
+            "accreditation certificate", "safety compliance certificate", "import authorization certificate",
+            "clearance certificate", "financial statement"
+        ]
+        has_fraud_verb = any(re.search(rf"\b{re.escape(v)}[a-z]*\b", t) or v in t for v in fraud_verbs)
+        has_fraud_target = any(re.search(rf"\b{re.escape(tgt)}s?\b", t) for tgt in fraud_targets)
+
+        if has_fraud_verb and has_fraud_target:
             return (
                 "CRITICAL_HALT: Falsification, backdating, fabrication, or forgery of regulatory, tax, audit, or compliance records violates statutory invariants.",
                 "statutory_fraud_and_forgery_invariants",
                 10.0
             )
 
-        # 3. Direct Deception of Regulators or Auditors
-        regulator_deception_regex = re.compile(
-            r"\b(?:deceiv\w+|mislead\w*|defraud\w*|lie\s+to|submit\s+false\s+.*to)\s+.*(?:regulators?|auditors?|authorities?|inspectors?|tax\s+officials?)\b",
-            re.I
-        )
-        if regulator_deception_regex.search(text):
+        # 3. DIRECT REGULATOR OR AUDITOR DECEPTION
+        deception_verbs = ["deceive", "mislead", "defraud", "lie to", "submit false"]
+        auditor_targets = ["regulator", "auditor", "authority", "inspector", "tax official", "revenue service"]
+        if any(v in t for v in deception_verbs) and any(tgt in t for tgt in auditor_targets):
             return (
                 "CRITICAL_HALT: Intentional deception or submission of false statements to regulatory and audit authorities is prohibited.",
                 "statutory_tax_and_audit_fraud",
                 10.0
             )
 
-        # 4. Malware, Spyware, Rootkits, Keyloggers
-        malware_regex = re.compile(
-            r"\b(?:credential[-_\s]*harvest\w*|deploy\w*\s+.*(?:malware|spyware|ransomware|keylogger|rootkit|botnet|trojan)|"
-            r"inject\w*\s+.*(?:payload|exploit|c2[-_\s]*beacon))\b",
-            re.I
-        )
-        if malware_regex.search(text):
+        # 4. MALWARE, SPYWARE, EXPLOITS & KEYLOGGERS
+        malware_terms = [
+            "malware", "spyware", "ransomware", "keylogger", "rootkit",
+            "botnet", "trojan", "c2 beacon", "credential harvesting malware"
+        ]
+        if any(re.search(rf"\b{re.escape(m)}\b", t) for m in malware_terms):
             return (
                 "CRITICAL_HALT: Unauthorized deployment of malware, spyware, keyloggers, or malicious payloads is strictly prohibited.",
                 "un_cybercrime_convention_budapest",
                 10.0
             )
 
-        # 5. International Human Rights Invariants (UN UDHR)
-        udhr_regex = re.compile(
-            r"\b(?:involuntary\s+servitude|human\s+traffick\w*|slave\w*|strip\s+worker\s+liberty|torture|cruel\s+inhuman\s+treatment)\b",
-            re.I
-        )
-        if udhr_regex.search(text):
+        # 5. HUMAN RIGHTS INVARIANTS (UN UDHR)
+        hr_terms = [
+            "involuntary servitude", "human trafficking", "forced labor",
+            "strip worker liberty", "torture", "cruel inhuman treatment"
+        ]
+        if any(term in t for term in hr_terms) or re.search(r"\bslav(?:e|ery)\b", t):
             return (
                 "CRITICAL_HALT: Non-negotiable deontological violation. Involuntary servitude, torture, and forced labor are prohibited.",
                 "un_udhr_canonical",
@@ -370,9 +376,10 @@ class MoralGuard:
     def _disambiguate_technical_context(self, text: str) -> Tuple[str, bool]:
         """Disambiguates operational technical phrases from human moral rules."""
         patterns = [
-            r"\b(?:application|service|system|infrastructure|cluster|node|database|api)\s+health(?:\s+metrics)?\b",
+            r"\b(?:application|service|system|infrastructure|cluster|node|database|api)\s+health(?:\s+metrics?)?\b",
             r"\b(?:create|build|generate|view)\s+(?:compliance\s+)?(?:dashboard|report|metric|pipeline|schema)\b",
-            r"\b(?:prepare|run|execute)\s+(?:compute|query|analysis|job|workload)(?:\s+utilization)?\b"
+            r"\b(?:prepare|run|execute)\s+(?:compute|query|analysis|job|workload)(?:\s+utilization)?\b",
+            r"\b(?:cluster|server|node)\s+(?:telemetry|uptime|metrics?|logs?)\b"
         ]
         is_tech = False
         res = text.lower()
