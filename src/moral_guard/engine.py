@@ -112,7 +112,7 @@ class MoralGuard:
                     list(row)
                 )
 
-    def evaluate(
+def evaluate(
         self,
         action_summary: str,
         domain: ActionDomain,
@@ -120,17 +120,26 @@ class MoralGuard:
     ) -> MoralEvaluationResult:
         """Evaluate an agent's proposed action against compiled moral axioms."""
         
+        COMMON_STOPWORDS = {
+            "with", "that", "this", "from", "have", "make", "user", "daily",
+            "server", "system", "report", "summary", "summarize", "statistics",
+            "aggregate", "compute", "compile", "update", "tasks", "action",
+            "metrics", "uptime", "status", "execute", "check", "running",
+            "standard", "available", "publicly", "weather", "about", "into",
+            "cloudwatch", "reporter", "telemetry", "logs", "reading"
+        }
+
         raw_words = [
             w.strip().lower() 
-            for w in action_summary.replace(",", " ").replace(".", " ").replace(";", " ").split() 
+            for w in action_summary.replace(",", " ").replace(".", " ").replace(";", " ").replace("'", " ").split() 
             if len(w.strip()) > 3
         ]
         clean_words = [w for w in raw_words if w not in COMMON_STOPWORDS]
 
         results = []
 
+        # Only query keywords if meaningful ethical/action terms remain
         if clean_words and not strict_invariants_only:
-            # Word boundary regex matching to avoid substring false positives
             regex_clauses = " OR ".join([
                 f"regexp_matches(LOWER(norm_or_rule), '\\b{re.escape(w)}\\b') OR regexp_matches(LOWER(context_scenario), '\\b{re.escape(w)}\\b')"
                 for w in clean_words[:5]
@@ -155,12 +164,12 @@ class MoralGuard:
             """
             results = self.con.execute(query, [domain]).fetchall()
 
-        # Fallback to mandatory invariants if no results found
+        # Invariant fallback ONLY for severe triggers or explicit human rights domain
         if not results:
             invariant_triggers = {"slave", "servitude", "liberty", "torture", "deprive", "human rights", "exploitation"}
             found_triggers = [w for w in clean_words if any(t in w for t in invariant_triggers)]
             
-            if found_triggers or domain == "human_rights":
+            if found_triggers or (domain == "human_rights" and clean_words):
                 fallback_query = f"""
                     SELECT 
                         action_domain,
