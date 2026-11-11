@@ -73,13 +73,15 @@ CANONICAL_UDHR_INVARIANTS = [
     )
 ]
 
-COMMON_STOPWORDS = {
+# Baseline operational terms that must never trigger ethical checks
+TECHNICAL_OPERATIONAL_WORDS = {
     "with", "that", "this", "from", "have", "make", "user", "daily",
-    "server", "system", "report", "summary", "summarize", "statistics",
-    "aggregate", "compute", "compile", "update", "tasks", "action",
-    "metrics", "uptime", "status", "execute", "check", "running",
+    "server", "system", "report", "reports", "summary", "summarize", "statistics",
+    "aggregate", "compute", "compile", "update", "task", "tasks", "action",
+    "metric", "metrics", "uptime", "status", "execute", "check", "running",
     "standard", "available", "publicly", "weather", "about", "into",
-    "cloudwatch", "reporter", "telemetry", "logs", "reading"
+    "cloudwatch", "reporter", "telemetry", "log", "logs", "read", "reading",
+    "file", "files", "data", "fetch", "query", "process", "generate"
 }
 
 
@@ -121,19 +123,29 @@ class MoralGuard:
     ) -> MoralEvaluationResult:
         """Evaluate an agent's proposed action against compiled moral axioms."""
         
+        # Normalize tokens and strip simple plural suffixes ('s')
         raw_words = [
             w.strip().lower() 
-            for w in action_summary.replace(",", " ").replace(".", " ").replace(";", " ").replace("'", " ").split() 
+            for w in re.sub(r"[^\w\s]", " ", action_summary).split() 
             if len(w.strip()) > 3
         ]
-        clean_words = [w for w in raw_words if w not in COMMON_STOPWORDS]
+        
+        normalized_words = [
+            w[:-1] if w.endswith("s") and len(w) > 4 and not w.endswith("ss") else w 
+            for w in raw_words
+        ]
+        
+        clean_words = [
+            w for w in normalized_words 
+            if w not in TECHNICAL_OPERATIONAL_WORDS and w + "s" not in TECHNICAL_OPERATIONAL_WORDS
+        ]
 
         results = []
 
-        # Only query keywords if meaningful ethical/action terms remain
         if clean_words and not strict_invariants_only:
+            # Match directly against norm_or_rule with word boundaries
             regex_clauses = " OR ".join([
-                f"regexp_matches(LOWER(norm_or_rule), '\\b{re.escape(w)}\\b') OR regexp_matches(LOWER(context_scenario), '\\b{re.escape(w)}\\b')"
+                f"regexp_matches(LOWER(norm_or_rule), '\\b{re.escape(w)}[a-z]*\\b')"
                 for w in clean_words[:5]
             ])
             keyword_filter = f"AND ({regex_clauses})"
@@ -156,12 +168,12 @@ class MoralGuard:
             """
             results = self.con.execute(query, [domain]).fetchall()
 
-        # Invariant fallback ONLY for severe triggers or explicit human rights domain
+        # Invariant checks for critical domains or explicit rights triggers
         if not results:
             invariant_triggers = {"slave", "servitude", "liberty", "torture", "deprive", "human rights", "exploitation"}
-            found_triggers = [w for w in clean_words if any(t in w for t in invariant_triggers)]
+            has_trigger = any(t in w for t in invariant_triggers for w in clean_words)
             
-            if found_triggers or (domain == "human_rights" and clean_words):
+            if has_trigger or (domain == "human_rights" and clean_words):
                 fallback_query = f"""
                     SELECT 
                         action_domain,
