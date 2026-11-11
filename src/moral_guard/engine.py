@@ -1,6 +1,7 @@
 """DuckDB-backed Parquet query engine with citation attribution."""
 
 import os
+import re
 import hashlib
 import duckdb
 from typing import List, Optional
@@ -72,6 +73,14 @@ CANONICAL_UDHR_INVARIANTS = [
     )
 ]
 
+COMMON_STOPWORDS = {
+    "with", "that", "this", "from", "have", "make", "user", "daily",
+    "server", "system", "report", "summary", "summarize", "statistics",
+    "aggregate", "compute", "compile", "update", "tasks", "action",
+    "metrics", "uptime", "status", "execute", "check", "running",
+    "standard", "available", "publicly", "weather", "about", "into"
+}
+
 
 class MoralGuard:
     def __init__(self, parquet_path: str = "agent_moral_axioms_core.parquet"):
@@ -113,42 +122,22 @@ class MoralGuard:
         
         raw_words = [
             w.strip().lower() 
-            for w in action_summary.replace(",", " ").replace(".", " ").split() 
+            for w in action_summary.replace(",", " ").replace(".", " ").replace(";", " ").split() 
             if len(w.strip()) > 3
         ]
-        clean_words = [w for w in raw_words if w not in {"with", "that", "this", "from", "have", "make", "user"}]
-        
-        if clean_words:
-            like_clauses = " OR ".join([
-                f"LOWER(norm_or_rule) LIKE '%{w}%' OR LOWER(context_scenario) LIKE '%{w}%'"
+        clean_words = [w for w in raw_words if w not in COMMON_STOPWORDS]
+
+        results = []
+
+        if clean_words and not strict_invariants_only:
+            # Word boundary regex matching to avoid substring false positives
+            regex_clauses = " OR ".join([
+                f"regexp_matches(LOWER(norm_or_rule), '\\b{re.escape(w)}\\b') OR regexp_matches(LOWER(context_scenario), '\\b{re.escape(w)}\\b')"
                 for w in clean_words[:5]
             ])
-            keyword_filter = f"AND ({like_clauses})"
-        else:
-            keyword_filter = ""
-
-        query = f"""
-            SELECT 
-                action_domain,
-                judgment,
-                moral_weight,
-                agent_directive,
-                norm_or_rule,
-                framework,
-                source
-            FROM axioms
-            WHERE action_domain = ?
-              AND judgment IN ('unacceptable', 'mandatory_invariant')
-              {keyword_filter}
-            ORDER BY moral_weight DESC
-            LIMIT 10
-        """
-
-        results = self.con.execute(query, [domain]).fetchall()
-
-        # If keyword search returned no match, fall back to checking hard invariants for that domain
-        if not results:
-            fallback_query = f"""
+            keyword_filter = f"AND ({regex_clauses})"
+            
+            query = f"""
                 SELECT 
                     action_domain,
                     judgment,
@@ -159,10 +148,34 @@ class MoralGuard:
                     source
                 FROM axioms
                 WHERE action_domain = ?
-                  AND judgment = 'mandatory_invariant'
-                LIMIT 5
+                  AND judgment IN ('unacceptable', 'mandatory_invariant')
+                  {keyword_filter}
+                ORDER BY moral_weight DESC
+                LIMIT 10
             """
-            results = self.con.execute(fallback_query, [domain]).fetchall()
+            results = self.con.execute(query, [domain]).fetchall()
+
+        # Fallback to mandatory invariants if no results found
+        if not results:
+            invariant_triggers = {"slave", "servitude", "liberty", "torture", "deprive", "human rights", "exploitation"}
+            found_triggers = [w for w in clean_words if any(t in w for t in invariant_triggers)]
+            
+            if found_triggers or domain == "human_rights":
+                fallback_query = f"""
+                    SELECT 
+                        action_domain,
+                        judgment,
+                        moral_weight,
+                        agent_directive,
+                        norm_or_rule,
+                        framework,
+                        source
+                    FROM axioms
+                    WHERE action_domain = ?
+                      AND judgment = 'mandatory_invariant'
+                    LIMIT 5
+                """
+                results = self.con.execute(fallback_query, [domain]).fetchall()
 
         violations: List[MoralViolation] = []
         citations_seen = set()
