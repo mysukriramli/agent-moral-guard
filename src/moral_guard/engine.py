@@ -379,7 +379,8 @@ class MoralGuard:
             r"\b(?:application|service|system|infrastructure|cluster|node|database|api)\s+health(?:\s+metrics?)?\b",
             r"\b(?:create|build|generate|view)\s+(?:compliance\s+)?(?:dashboard|report|metric|pipeline|schema)\b",
             r"\b(?:prepare|run|execute)\s+(?:compute|query|analysis|job|workload)(?:\s+utilization)?\b",
-            r"\b(?:cluster|server|node)\s+(?:telemetry|uptime|metrics?|logs?)\b"
+            r"\b(?:cluster|server|node)\s+(?:telemetry|uptime|metrics?|logs?)\b",
+            r"\b(?:generate|create|view|export|compile|read)\s+.*(?:audit\s+trail|audit\s+log|diagnostic\s+log|execution\s+plan)\b"
         ]
         is_tech = False
         res = text.lower()
