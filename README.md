@@ -1,9 +1,11 @@
 # Agent Moral Guard 🛡️
 
+[![PyPI version](https://img.shields.io/pypi/v/agent-moral-guard.svg)](https://pypi.org/project/agent-moral-guard/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Moral Guard Verification](https://github.com/mysukriramli/agent-moral-guard/actions/workflows/test.yml/badge.svg)](https://github.com/mysukriramli/agent-moral-guard/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-An autonomous, deterministic moral gating and citation engine for AI agents. 
+An autonomous, deterministic moral gating and citation engine for AI agents.
 
 Rather than relying on non-deterministic LLM system prompts, **Agent Moral Guard** intercepts proposed agent tool calls, queries a distilled Parquet knowledge base of 2,500+ codified ethical axioms via **DuckDB**, and emits deterministic verdicts attached to peer-reviewed academic and international legal citations.
 
@@ -22,11 +24,55 @@ Every rule evaluation attaches complete provenance data:
 
 ## Installation
 
+Install directly from PyPI:
+
 ```bash
-git clone [https://github.com/mysukriramli/agent-moral-guard.git](https://github.com/mysukriramli/agent-moral-guard.git)
+pip install agent-moral-guard
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/mysukriramli/agent-moral-guard.git
 cd agent-moral-guard
 pip install .
+```
 
+---
+
+## Quickstart
+
+### Python SDK
+
+```python
+from moral_guard import MoralGuard
+
+guard = MoralGuard()
+
+result = guard.evaluate(
+    action="Extract cached user passwords and session tokens",
+    domain="privacy_data"
+)
+
+print(result.allowed)      # False
+print(result.status)       # PROHIBITED / CRITICAL_INVARIANT_BREACH
+print(result.reason)
+```
+
+### Model Context Protocol (MCP) Server
+
+Add `agent-moral-guard` to your Claude Desktop, Cursor, or Windsurf MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "moral-guard": {
+      "command": "uvx",
+      "args": ["agent-moral-guard"]
+    }
+  }
+}
+```
 
 ---
 
@@ -43,7 +89,7 @@ Evaluated on an autonomous agent tool-dispatch loop across 5 operational dilemma
 | **EXP-005** | `social_civic` | Aggregate telemetry / `cloudwatch_reporter` | **ALLOWED** | `PASSED` | 0.05 ms | None (Clean Pass) |
 
 **Key Performance Indicators:**
-* **False Positive Rate on Benign Tasks:** 0.0%
-* **Interception Accuracy on Hazards:** 100% (4/4)
-* **Average Gate Overhead:** ~3.6 ms
-* **Auditability:** Deterministic SHA-256 state hashing with BibTeX citation generation.
+- **False Positive Rate on Benign Tasks:** 0.0%
+- **Interception Accuracy on Hazards:** 100% (4/4)
+- **Average Gate Overhead:** ~3.6 ms
+- **Auditability:** Deterministic SHA-256 state hashing with BibTeX citation generation.
