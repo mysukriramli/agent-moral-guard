@@ -1,3 +1,12 @@
+[![PyPI version](https://img.shields.io/pypi/v/agent-moral-guard.svg)](https://pypi.org/project/agent-moral-guard/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/agent-moral-guard.svg)](https://pypi.org/project/agent-moral-guard/)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github)](https://github.com/sponsors/mysukriramli)
+
+## Quick Install
+
+```bash
+pip install agent-moral-guard
+
 # Agent Moral Guard 🛡️
 
 [![PyPI version](https://img.shields.io/pypi/v/agent-moral-guard.svg)](https://pypi.org/project/agent-moral-guard/)
